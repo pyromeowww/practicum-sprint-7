@@ -86,3 +86,50 @@ func TestCafeCount(t *testing.T) {
 		}
 	}
 }
+
+
+func TestCafeSearch(t *testing.T) {
+	handler := http.HandlerFunc(mainHandle)
+
+	request := []struct {
+		search string // передаваемое значение search
+		want   int    // ожидаемое количество кафе в ответе
+	}{
+		{"фасоль", 0},
+		{"кофе", 2},
+		{"вилка", 1},
+	}
+	for _, v := range request {
+		url := fmt.Sprintf("/cafe?city=moscow&search=%s", v.search) // делаем URL с параметром search
+		req := httptest.NewRequest("GET", url, nil)                 // создаем HTTP запрос
+		response := httptest.NewRecorder()                          // запись ответа
+		handler.ServeHTTP(response, req)                            // вызов обработчика
+		if response.Code != http.StatusOK {
+			t.Errorf("для search=%q ожидается статус 200, получено %d", v.search, response.Code)
+			continue
+		}
+		body := strings.TrimSpace(response.Body.String())
+		if body == "" {
+			if v.want != 0 {
+				t.Errorf("для search=%q ожидается %d кафе, получен пустой ответ", v.search, v.want)
+			}
+			continue
+		}
+
+		// разбиваем ответ на слайс названий кафе
+		cafes := strings.Split(body, ",")
+
+		// проверяем количество найденных кафе
+		if len(cafes) != v.want {
+			t.Errorf("для search=%q ожидается %d кафе, получено %d", v.search, v.want, len(cafes))
+		}
+
+		
+		searchLower := strings.ToLower(v.search)
+		for _, cafe := range cafes {
+			if !strings.Contains(strings.ToLower(cafe), searchLower) {
+				t.Errorf("для search=%q название %q не содержит искомую строку", v.search, cafe)
+			}
+		}
+	}
+}
